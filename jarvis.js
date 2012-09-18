@@ -15,44 +15,37 @@ var sudoers = {'4e99db8d4fe7d059f7079f56':'ECHRIS'}
 //bot.debug = true
 
 //TODO: find a way to get bot name from tt
-var botname = 'DJJarvis';
-var casino_on  = false;
+var botname       = 'DJJarvis';
+var casino_on     = false;
 var rolls_allowed = false;
-var gamblers = []
-var users = [];
-var winner = undefined;
+var gamblers      = []
+var users         = [];
+var winner        = undefined;
+var laptops       = ['linux', 'mac', 'pc', 'chrome', 'iphone']
 
-function getUserById(userId){
-    for (index in users){
-        if (users[index].userid === userId) {
-            return users[index];
-        }
-    }
-}
-
-bot.on('roomChanged', function(data){
+bot.on( 'roomChanged', function(data) {
     //create user list
     users = data.users;
 });
 
-bot.on('add_dj', function(data){
+bot.on( 'add_dj', function(data) {
     if ( casino_on ){
-        console.log('casino is on eliminate snipers')
+        console.log( 'casino is on eliminate snipers' )
         //casino is on, eliminate snipers
         var new_dj_id = data.user[0].userid
-        if ( _.isUndefined(winner) ) {
-            console.log('winner is undefined still, you can"t be on deck')
-            console.log(data)
-            console.log(new_dj_id)
+        if ( _.isUndefined( winner ) ) {
+            console.log( 'winner is undefined still, you can"t be on deck' )
+            console.log( data )
+            console.log( new_dj_id )
             //rollers haven't finished yet
-            bot.boot(new_dj_id, 'Casino system in effect, no sniping')
-        } else if ( new_dj_id != winner.userId || new_dj_id != USERID){
-            bot.boot(new_dj_id, 'Casino system in effect, no sniping')
+            bot.boot( new_dj_id, 'Casino system in effect, no sniping' )
+        } else if ( new_dj_id != winner.userId || new_dj_id != USERID ){
+            bot.boot( new_dj_id, 'Casino system in effect, no sniping' )
         }
     }
 })
 
-bot.on('rem_dj', function(){
+bot.on( 'rem_dj', function() {
     if (casino_on){
         winner = undefined;
         rolls_allowed = true;
@@ -62,9 +55,16 @@ bot.on('rem_dj', function(){
     }
 })
 
-bot.on('registered', function(data){
-    users.push(data.user)
+bot.on( 'registered', function(data) {
+    for ( i in data.user ) {
+        users.push( data.user[i] )
+    }
+    console.log(users)
 });
+
+bot.on('deregistered', function(data){
+    //TODO: Remove people from the user list
+})
 
 bot.on('speak', function(data){
     username=data.name
@@ -73,7 +73,7 @@ bot.on('speak', function(data){
     if (data.userid != USERID){
         //bot should always respond to greetings
         if (data.text.match(/(sup|hello|hi|hey|whatup|oh hai) jarvis/gi)) {
-            bot.speak('Hey! How are you '+username+' ?');
+            bot.speak( 'Hey! How are you '+username+' ?' );
         }
 
         //bot should always respond to rolls if casino is in effect
@@ -106,7 +106,6 @@ bot.on('speak', function(data){
 })
 
 bot.on('pmmed', function(data){
-    console.log(data)
     console.log('pmmed by '+ getUserById(data.senderid).name)
     //Expect name to be left out
     if (data.text.match(/jarvis (.+)/)) {
@@ -117,7 +116,7 @@ bot.on('pmmed', function(data){
 })
 
 function command( order, data, pm ) {
-    console.log(order)
+    console.log( 'Command: '+order )
 
     if ( pm ) {
         userid = data.senderid
@@ -128,15 +127,15 @@ function command( order, data, pm ) {
     if ( order.match(/^roll$/) && casino_on ){
         //TODO: add boost multiplier based on your score
         var already_voted = false;
-        roll_score = Math.floor(Math.random()*1000)
+        roll_score = Math.floor( Math.random()*1000 )
         for ( x in gamblers ) {
             if ( gamblers[x].userId === userid ){
                 already_voted = true;
             }
         }
         if ( !already_voted ){
-            gamblers.push( {userId : userid, score: roll_score } )
-            bot.speak(getUserById(userid).name+' you rolled '+ roll_score)
+            gamblers.push( { userId : userid, score: roll_score } )
+            bot.speak( getUserById( userid ).name+' you rolled '+ roll_score )
         }
     }
 
@@ -159,7 +158,7 @@ function command( order, data, pm ) {
         //Sudo users
         if (order.match(/^say (.+)/)) {
            words = order.match(/^say (.+)/)[1];
-            bot.speak(words)
+           bot.speak( words );
         }
 
         //Currently not working...
@@ -196,10 +195,10 @@ function command( order, data, pm ) {
         }
 
         if (order.match(/wingman/)){
-            bot.bop()
+            bot.bop();
             if ( !pm ) { bot.speak('I got your back bro'); }
             bot.addDj();
-            autobop = true
+            autobop = true;
         }
 
         if (order.match(/autobop|kiss my ass/)){
@@ -217,6 +216,7 @@ function command( order, data, pm ) {
 
 bot.on('newsong', function(data){
     if ( autobop == true ){
+        bot.modifyLaptop(laptops[Math.round(Math.random()*4)])
         if ( data.room.metadata.current_dj != USERID ){
             //song is someone elses
             safe_wait = Math.random()*45000
@@ -229,10 +229,19 @@ bot.on('newsong', function(data){
     }
 })
 
+function getUserById(userId){
+    for (index in users){
+        if (users[index].userid === userId) {
+            return users[index];
+        }
+    }
+}
+
 function lottery_winner(){
     console.log(gamblers)
-    winner= _.max(gamblers, function(roller){ return roller.score })
-    bot.speak(getUserById(winner.userId).name+' won with a '+winner.score+', claim your spot on deck')
+    //Find the winner with the higherst roll and report it.
+    winner = _.max(gamblers, function(roller){ return roller.score })
+    bot.speak( getUserById(winner.userId).name + ' won with a '+winner.score + ', claim your spot on deck' )
     gamblers = []
     rolls_allowed = false;
 }
