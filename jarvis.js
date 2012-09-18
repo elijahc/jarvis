@@ -10,7 +10,7 @@ var ROOMID = creds.ROOMID
 var bot = new Bot(AUTH, USERID, ROOMID)
 
 var mods    = {'4fb188d7aaa5cd0950000107': 'DJJarvis', '4f9b0715aaa5cd2af40001e4':'A Tree', '4fe4db76aaa5cd0a6b000040':'Jamas'}
-var sudoers = {'4e99db8d4fe7d059f7079f56':'ECHRIS'}
+var sudoers = {'4fb188d7aaa5cd0950000107': 'DJJarvis', '4e99db8d4fe7d059f7079f56':'ECHRIS'}
 
 //bot.debug = true
 
@@ -22,7 +22,7 @@ var no_rolls      = false;
 var gamblers      = []
 var users         = [];
 var winner        = undefined;
-var laptops       = ['linux', 'mac', 'pc', 'chrome', 'iphone']
+var laptops       = ['linux', 'mac', 'pc', 'chrome' ]
 var autobop       = false;
 
 bot.on( 'roomChanged', function(data) {
@@ -164,13 +164,15 @@ function command( order, data, pm ) {
            bot.speak( words );
         }
 
-        if (order.match(/^botnet (.+) (\d+)/)){
-            com = order.match(/^botnet (.+) (\d+)/)
+        if (order.match(/^botnet (\d+) (.+)/)){
+            com = order.match(/^botnet (\d+) (.+)/)
             console.log(com)
 
-            for ( var i=0; i<com[2]; i++  ){
+            for ( var i=0; i<com[1]; i++  ){
                 slave = slaves.getRandomSlave()
-                setTimeout(function(){bot.pm(slave.userId, com[1])}, Math.random()*30000)
+                wait = Math.random()*30000
+                console.log('Commanding '+slave.name+' '+com[2]+' in '+(wait/1000)+' sec')
+                setTimeout(function(){bot.pm(slave.userId, com[2])}, wait)
             }
         }
         //Currently not working...
@@ -196,29 +198,29 @@ function command( order, data, pm ) {
 
     if ( _.has( mods, userid ) || _.has( sudoers, userid )) {
         //Mod and sudoers only commands
-        if (order.match(/(upboat|awesome|upvote|kiss my ass|dance)/)){
+        if (order.match(/(^upboat|^awesome|^upvote|^kiss my ass|^dance)/)){
             if (!pm) {bot.speak('roger that'); }
             bot.bop();
         }
 
-        if (order.match(/downvote|lame|hate on this/)){
+        if (order.match(/^downvote|^lame|^hate on this/)){
             bot.speak('this sucks');
             bot.vote('down');
         }
 
-        if (order.match(/wingman/)){
+        if (order.match(/^wingman/)){
             bot.bop();
             if ( !pm ) { bot.speak('I got your back bro'); }
             bot.addDj();
             autobop = true;
         }
 
-        if (order.match(/autobop|kiss my ass/)){
+        if (order.match(/^autobop|^kiss my ass/)){
             autobop==true;
             bot.bop();
         }
 
-        if (order.match(/get off/)){
+        if (order.match(/^get off$/)){
             if ( !pm ){ bot.speak('ok.... :('); }
             autobop = false;
             bot.remDj();
