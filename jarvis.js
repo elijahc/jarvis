@@ -1,16 +1,15 @@
-var _ = require('underscore');
+var _      = require('underscore');
 var Bot    = require('ttapi');
-var AUTH   = "auth+live+f3793f089341f38b66f8edf614202cdcc662bb7e"
-var USERID = "4fb188d7aaa5cd0950000107"
-var ROOMID = "5047cd71aaa5cd759e000134"
+var creds  = require('./credentials.js')
 
-var autobop
+var AUTH   = creds.AUTH
+var USERID = creds.USERID
+var ROOMID = creds.ROOMID
 
 var bot = new Bot(AUTH, USERID, ROOMID)
 
 var mods    = {'4f9b0715aaa5cd2af40001e4':'A Tree', '4fe4db76aaa5cd0a6b000040':'Jamas'}
 var sudoers = {'4e99db8d4fe7d059f7079f56':'ECHRIS'}
-
 
 //bot.debug = true
 
@@ -22,6 +21,7 @@ var gamblers      = []
 var users         = [];
 var winner        = undefined;
 var laptops       = ['linux', 'mac', 'pc', 'chrome', 'iphone']
+var autobop       = false;
 
 bot.on( 'roomChanged', function(data) {
     //create user list
