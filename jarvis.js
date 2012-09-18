@@ -1,6 +1,7 @@
 var _      = require('underscore');
 var Bot    = require('ttapi');
 var creds  = require('./credentials.js')
+var slaves = require('./slaves.js')
 
 var AUTH   = creds.AUTH
 var USERID = creds.USERID
@@ -8,7 +9,7 @@ var ROOMID = creds.ROOMID
 
 var bot = new Bot(AUTH, USERID, ROOMID)
 
-var mods    = {'4f9b0715aaa5cd2af40001e4':'A Tree', '4fe4db76aaa5cd0a6b000040':'Jamas'}
+var mods    = {'4fb188d7aaa5cd0950000107': 'DJJarvis', '4f9b0715aaa5cd2af40001e4':'A Tree', '4fe4db76aaa5cd0a6b000040':'Jamas'}
 var sudoers = {'4e99db8d4fe7d059f7079f56':'ECHRIS'}
 
 //bot.debug = true
@@ -17,6 +18,7 @@ var sudoers = {'4e99db8d4fe7d059f7079f56':'ECHRIS'}
 var botname       = 'DJJarvis';
 var casino_on     = false;
 var rolls_allowed = false;
+var no_rolls      = false;
 var gamblers      = []
 var users         = [];
 var winner        = undefined;
@@ -29,7 +31,7 @@ bot.on( 'roomChanged', function(data) {
 });
 
 bot.on( 'add_dj', function(data) {
-    if ( casino_on ){
+    if ( casino_on && !no_rolls){
         console.log( 'casino is on eliminate snipers' )
         //casino is on, eliminate snipers
         var new_dj_id = data.user[0].userid
@@ -38,9 +40,9 @@ bot.on( 'add_dj', function(data) {
             console.log( data )
             console.log( new_dj_id )
             //rollers haven't finished yet
-            bot.boot( new_dj_id, 'Casino system in effect, no sniping' )
+            bot.remDj( new_dj_id )
         } else if ( new_dj_id != winner.userId || new_dj_id != USERID ){
-            bot.boot( new_dj_id, 'Casino system in effect, no sniping' )
+            bot.remDj( new_dj_id )
         }
     }
 })
@@ -126,6 +128,7 @@ function command( order, data, pm ) {
 
     if ( order.match(/^roll$/) && casino_on ){
         //TODO: add boost multiplier based on your score
+        no_rolls = false;
         var already_voted = false;
         roll_score = Math.floor( Math.random()*1000 )
         for ( x in gamblers ) {
@@ -161,6 +164,15 @@ function command( order, data, pm ) {
            bot.speak( words );
         }
 
+        if (order.match(/^botnet (.+) (\d+)/)){
+            com = order.match(/^botnet (.+) (\d+)/)
+            console.log(com)
+
+            for ( var i=0; i<com[2]; i++  ){
+                slave = slaves.getRandomSlave()
+                setTimeout(function(){bot.pm(slave.userId, com[1])}, Math.random()*30000)
+            }
+        }
         //Currently not working...
         if (order.match(/^run (.+)/)) {
         }
@@ -240,8 +252,13 @@ function getUserById(userId){
 function lottery_winner(){
     console.log(gamblers)
     //Find the winner with the higherst roll and report it.
-    winner = _.max(gamblers, function(roller){ return roller.score })
-    bot.speak( getUserById(winner.userId).name + ' won with a '+winner.score + ', claim your spot on deck' )
+    if ( gamblers.length == 0 ) {
+        bot.speak( 'Lame, no one rolled, slot is open for all' )
+        no_rolls = true;
+    } else {
+        winner = _.max(gamblers, function(roller){ return roller.score })
+        bot.speak( getUserById(winner.userId).name + ' won with a '+winner.score + ', claim your spot on deck' )
+    }
     gamblers = []
     rolls_allowed = false;
 }
