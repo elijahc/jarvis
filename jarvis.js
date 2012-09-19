@@ -16,8 +16,8 @@ var users           = [];
 var winner          = undefined;
 var laptops         = ['linux', 'mac', 'pc', 'chrome' ]
 var autobop         = false;
-var mods            = {'4fb188d7aaa5cd0950000107': 'DJJarvis', '4f9b0715aaa5cd2af40001e4':'A Tree', '4fe4db76aaa5cd0a6b000040':'Jamas'}
-var sudoers         = {'4e99db8d4fe7d059f7079f56':'ECHRIS'}
+var mods            = {'4fb188d7aaa5cd0950000107': 'DJJarvis', '4fe4db76aaa5cd0a6b000040':'Jamas'}
+var sudoers         = {'4e99db8d4fe7d059f7079f56':'ECHRIS', '4f9b0715aaa5cd2af40001e4':'A Tree'}
 var creds
 
 var switches        = [
@@ -174,6 +174,11 @@ function command( order, data, pm ) {
 
     if ( _.has( sudoers, userid ) ){
         //Sudo users
+        if (order.match(/^say (.+)/)) {
+           words = order.match(/^say (.+)/)[1];
+           bot.speak( words );
+        }
+
         if (order.match(/^botnet (\d+) (.+)/)){
             com = order.match(/^botnet (\d+) (.+)/)
             console.log(com)
@@ -211,11 +216,6 @@ function command( order, data, pm ) {
 
     if ( _.has( mods, userid ) || _.has( sudoers, userid )) {
         //Mod and sudoers only commands
-        if (order.match(/^say (.+)/)) {
-           words = order.match(/^say (.+)/)[1];
-           bot.speak( words );
-        }
-
         if (order.match(/(^upboat|^awesome|^upvote|^kiss my ass|^dance)/)){
             if (!pm) {bot.speak('roger that'); }
             bot.bop();
