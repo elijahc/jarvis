@@ -2,8 +2,8 @@ var _           = require('underscore');
 var sys         = require('sys');
 var optparse    = require('optparse');
 var Bot         = require('ttapi');
-var slaves      = require('./slaves.js')
-
+var slaves      = require('./slaves.js');
+var CleverBot	= require('./lib/cleverbot');
 
 //TODO: find a way to get bot name from tt
 var botname         = 'DJJarvis';
@@ -20,6 +20,13 @@ var mods            = {'4fb188d7aaa5cd0950000107': 'DJJarvis', '4fe4db76aaa5cd0a
 var sudoers         = {'4e99db8d4fe7d059f7079f56':'ECHRIS', '4f9b0715aaa5cd2af40001e4':'A Tree'}
 var slave           = false;
 var creds
+
+//create cleverbot function within
+var CBot			= [new CleverBot]
+  , name 			= botname
+  , callback		= function callback(resp){
+    console.log(name, ' : ', resp)
+  };
 
 var switches        = [
     ['-c', '--creds FILE', 'Credentials you want the bot to connect with'],
@@ -128,6 +135,10 @@ bot.on('speak', function(data){
                 command( order, data, false )
             }
         }
+
+		if (data.text.match(/^(.+) @DJJarvis (.+)/)) {
+			bot.speak(CBots[0].write(data.text, callback))
+		}
     }
 })
 
