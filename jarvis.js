@@ -18,17 +18,23 @@ var laptops         = ['linux', 'mac', 'pc', 'chrome' ]
 var autobop         = false;
 var mods            = {'4fb188d7aaa5cd0950000107': 'DJJarvis', '4fe4db76aaa5cd0a6b000040':'Jamas'}
 var sudoers         = {'4e99db8d4fe7d059f7079f56':'ECHRIS', '4f9b0715aaa5cd2af40001e4':'A Tree'}
+var slave           = false;
 var creds
 
 var switches        = [
     ['-c', '--creds FILE', 'Credentials you want the bot to connect with'],
-    ['-v', '--verbose', 'verbose mode']
+    ['-v', '--verbose', 'verbose mode'],
+    ['-s', '--slave', 'verbose mode']
 ]
 
 var parser = new optparse.OptionParser(switches);
 
 parser.on('creds', function(name, value){
     creds = require('./'+value)
+})
+
+parser.on('slave', function(name, value){
+    slave = true;
 })
 
 parser.on('verbose', function(name, value){
@@ -92,32 +98,35 @@ bot.on('speak', function(data){
 
     //We don't care what the bot says
     if (data.userid != USERID){
-        //bot should always respond to greetings
-        if (data.text.match(/(sup|hello|hi|hey|whatup|oh hai) jarvis/gi)) {
-            bot.speak( 'Hey! How are you '+username+' ?' );
-        }
 
-        //bot should always respond to rolls if casino is in effect
-        if (data.text.match(/^roll$/) && casino_on && rolls_allowed){
-            command( data.text, data, false )
-        }
+        if (!slave) {
+            //bot should always respond to greetings
+            if (data.text.match(/(sup|hello|hi|hey|whatup|oh hai) jarvis/gi)) {
+                bot.speak( 'Hey! How are you '+username+' ?' );
+            }
 
-        //respond to all casino? queries
-        if (data.text.match(/^casino.$/)) {
-            command( 'casino?', data, false );
-        }
+            //bot should always respond to rolls if casino is in effect
+            if (data.text.match(/^roll$/) && casino_on && rolls_allowed){
+                command( data.text, data, false )
+            }
 
-        //Check if the bot has been issued a command
-        if (data.text.match(/^jj (.+)/)) {
-            var order = data.text.match(/^jj (.+)/)[1]
-            //dispatch command
-            command( order, data, false )
-        }
+            //respond to all casino? queries
+            if (data.text.match(/^casino.$/)) {
+                command( 'casino?', data, false );
+            }
 
-        if (data.text.match(/^jarvis (.+)/)) {
-            var order = data.text.match(/^jarvis (.+)/)[1]
-            //dispatch command
-            command( order, data, false )
+            //Check if the bot has been issued a command
+            if (data.text.match(/^jj (.+)/)) {
+                var order = data.text.match(/^jj (.+)/)[1]
+                //dispatch command
+                command( order, data, false )
+            }
+
+            if (data.text.match(/^jarvis (.+)/)) {
+                var order = data.text.match(/^jarvis (.+)/)[1]
+                //dispatch command
+                command( order, data, false )
+            }
         }
     }
 })
