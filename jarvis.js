@@ -1,29 +1,48 @@
-var _      = require('underscore');
-var Bot    = require('ttapi');
-var creds  = require('./credentials.js')
-var slaves = require('./slaves.js')
+var _           = require('underscore');
+var sys         = require('sys');
+var optparse    = require('optparse');
+var Bot         = require('ttapi');
+var slaves      = require('./slaves.js')
+
+
+//TODO: find a way to get bot name from tt
+var botname         = 'DJJarvis';
+var casino_on       = false;
+var rolls_allowed   = false;
+var no_rolls        = false;
+var gamblers        = []
+var timers          = [];
+var users           = [];
+var winner          = undefined;
+var laptops         = ['linux', 'mac', 'pc', 'chrome' ]
+var autobop         = false;
+var mods            = {'4fb188d7aaa5cd0950000107': 'DJJarvis', '4f9b0715aaa5cd2af40001e4':'A Tree', '4fe4db76aaa5cd0a6b000040':'Jamas'}
+var sudoers         = {'4e99db8d4fe7d059f7079f56':'ECHRIS'}
+var creds
+
+var switches        = [
+    ['-c', '--creds FILE', 'Credentials you want the bot to connect with'],
+    ['-v', '--verbose', 'verbose mode']
+]
+
+var parser = new optparse.OptionParser(switches);
+
+parser.on('creds', function(name, value){
+    creds = require('./'+value)
+})
+
+parser.on('verbose', function(name, value){
+    bot.debug = true;
+})
+
+parser.parse(process.argv)
 
 var AUTH   = creds.AUTH
 var USERID = creds.USERID
 var ROOMID = creds.ROOMID
 
 var bot = new Bot(AUTH, USERID, ROOMID)
-
-var mods    = {'4fb188d7aaa5cd0950000107': 'DJJarvis', '4f9b0715aaa5cd2af40001e4':'A Tree', '4fe4db76aaa5cd0a6b000040':'Jamas'}
-var sudoers = {'4fb188d7aaa5cd0950000107': 'DJJarvis', '4e99db8d4fe7d059f7079f56':'ECHRIS'}
-
 //bot.debug = true
-
-//TODO: find a way to get bot name from tt
-var botname       = 'DJJarvis';
-var casino_on     = false;
-var rolls_allowed = false;
-var no_rolls      = false;
-var gamblers      = []
-var users         = [];
-var winner        = undefined;
-var laptops       = ['linux', 'mac', 'pc', 'chrome' ]
-var autobop       = false;
 
 bot.on( 'roomChanged', function(data) {
     //create user list
@@ -100,10 +119,6 @@ bot.on('speak', function(data){
             //dispatch command
             command( order, data, false )
         }
-
-        if ( curse(data) ){
-            bot.speak('Whoa '+username+', easy on the language!')
-        }
     }
 })
 
@@ -159,22 +174,21 @@ function command( order, data, pm ) {
 
     if ( _.has( sudoers, userid ) ){
         //Sudo users
-        if (order.match(/^say (.+)/)) {
-           words = order.match(/^say (.+)/)[1];
-           bot.speak( words );
-        }
-
         if (order.match(/^botnet (\d+) (.+)/)){
             com = order.match(/^botnet (\d+) (.+)/)
             console.log(com)
 
             for ( var i=0; i<com[1]; i++  ){
-                slave = slaves.getRandomSlave()
+                var slave = slaves.getRandomSlave()
                 wait = Math.random()*30000
                 console.log('Commanding '+slave.name+' '+com[2]+' in '+(wait/1000)+' sec')
-                setTimeout(function(){bot.pm(slave.userId, com[2])}, wait)
+                timers[i] = setTimeout(function(command, slave){
+                    console.log('pmming '+slave.name+' now');
+                    bot.pm(command, slave.userId)
+                }, wait, com[2], slave)
             }
         }
+
         //Currently not working...
         if (order.match(/^run (.+)/)) {
         }
@@ -195,16 +209,20 @@ function command( order, data, pm ) {
         }
     }
 
-
     if ( _.has( mods, userid ) || _.has( sudoers, userid )) {
         //Mod and sudoers only commands
+        if (order.match(/^say (.+)/)) {
+           words = order.match(/^say (.+)/)[1];
+           bot.speak( words );
+        }
+
         if (order.match(/(^upboat|^awesome|^upvote|^kiss my ass|^dance)/)){
             if (!pm) {bot.speak('roger that'); }
             bot.bop();
         }
 
         if (order.match(/^downvote|^lame|^hate on this/)){
-            bot.speak('this sucks');
+            if (!pm ) { bot.speak('this sucks'); }
             bot.vote('down');
         }
 
@@ -263,8 +281,4 @@ function lottery_winner(){
     }
     gamblers = []
     rolls_allowed = false;
-}
-
-function curse(data) {
-    return data.text.match(/(cr(.)ck(.)|gay|(f|ph)uck|b(.)tch|cunt|nig)/gi)
 }
