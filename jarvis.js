@@ -10,7 +10,7 @@ var ROOMID = creds.ROOMID
 var bot = new Bot(AUTH, USERID, ROOMID)
 
 var mods    = {'4fb188d7aaa5cd0950000107': 'DJJarvis', '4f9b0715aaa5cd2af40001e4':'A Tree', '4fe4db76aaa5cd0a6b000040':'Jamas'}
-var sudoers = {'4fb188d7aaa5cd0950000107': 'DJJarvis', '4e99db8d4fe7d059f7079f56':'ECHRIS'}
+var sudoers = {'4fb188d7aaa5cd0950000107': 'DJJarvis', '4f9b0715aaa5cd2af40001e4':'A Tree', '4e99db8d4fe7d059f7079f56':'ECHRIS'}
 
 //bot.debug = true
 
