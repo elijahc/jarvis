@@ -179,6 +179,11 @@ function command( order, data, pm ) {
            bot.speak( words );
         }
 
+        if (order.match(/^grind$/)) {
+            bot.addDj()
+            autobop = true;
+        }
+
         if (order.match(/^botnet (\d+) (.+)/)){
             com = order.match(/^botnet (\d+) (.+)/)
             console.log(com)
