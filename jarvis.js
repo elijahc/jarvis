@@ -266,5 +266,5 @@ function lottery_winner(){
 }
 
 function curse(data) {
-    return data.text.match(/(cr(.)ck(.)|gay|(f|ph)uck|b(.)tch|cunt|nig)/gi)
+    return data.text.match(/(cr(.)ck(.)|gay|(f|ph)uck|b(.)tch|cunt|nig|sh(i|a|!|@)t)/gi)
 }
