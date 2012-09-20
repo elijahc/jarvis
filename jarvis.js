@@ -10,6 +10,9 @@ var botname         = 'DJJarvis';
 var casino_on       = false;
 var rolls_allowed   = false;
 var no_rolls        = false;
+var talked_to_last  = false;
+var chat_timeout    = false;
+var cbot_rgx        = new RegExp('@?'+botname+' ?(.+)?\\??')
 var gamblers        = []
 var timers          = [];
 var users           = [];
@@ -21,12 +24,7 @@ var sudoers         = {'4e99db8d4fe7d059f7079f56':'ECHRIS', '4f9b0715aaa5cd2af40
 var slave           = false;
 var creds
 
-//create cleverbot function within
-var CBot			= [new CleverBot]
-  , name 			= botname
-  , callback		= function callback(resp){
-    console.log(name, ' : ', resp)
-  };
+var CBot =  new CleverBot;
 
 var switches        = [
     ['-c', '--creds FILE', 'Credentials you want the bot to connect with'],
@@ -136,9 +134,22 @@ bot.on('speak', function(data){
             }
         }
 
-		if (data.text.match(/^(.+) @DJJarvis (.+)/)) {
-			bot.speak(CBots[0].write(data.text, callback))
-		}
+        if (data.text.match(cbot_rgx) || talked_to_last === data.userid) {
+            if (talked_to_last) {
+                var question = data.text;
+            } else {
+                var question = data.text.match(cbot_rgx)[1];
+                talked_to_last = data.userid;
+            }
+            CBot.write(question, function callback(resp){
+                console.log(question, ' : ', resp['message'])
+                bot.speak(resp['message'])
+            });
+            if ( chat_timeout ) {
+                clearTimeout(chat_timeout);
+            }
+            chat_timeout = setTimeout(function(){talked_to_last = false}, 18000)
+        }
     }
 })
 
