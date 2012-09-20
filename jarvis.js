@@ -3,16 +3,16 @@ var sys         = require('sys');
 var optparse    = require('optparse');
 var Bot         = require('ttapi');
 var slaves      = require('./slaves.js');
-var CleverBot	= require('./lib/cleverbot');
+var CleverBot   = require('./lib/cleverbot');
 
 //TODO: find a way to get bot name from tt
-var botname         = 'DJJarvis';
+var botname
 var casino_on       = false;
 var rolls_allowed   = false;
 var no_rolls        = false;
 var talked_to_last  = false;
 var chat_timeout    = false;
-var cbot_rgx        = new RegExp('@?'+botname+' ?(.+)?\\??')
+var grind           = false;
 var gamblers        = []
 var timers          = [];
 var users           = [];
@@ -28,11 +28,16 @@ var CBot =  new CleverBot;
 
 var switches        = [
     ['-c', '--creds FILE', 'Credentials you want the bot to connect with'],
+    ['-r', '--room FILE', 'Room to go too'],
     ['-v', '--verbose', 'verbose mode'],
     ['-s', '--slave', 'verbose mode']
 ]
 
 var parser = new optparse.OptionParser(switches);
+
+parser.on('room', function(name, value){
+    room = require('./'+value)
+})
 
 parser.on('creds', function(name, value){
     creds = require('./'+value)
@@ -48,9 +53,11 @@ parser.on('verbose', function(name, value){
 
 parser.parse(process.argv)
 
-var AUTH   = creds.AUTH
-var USERID = creds.USERID
-var ROOMID = creds.ROOMID
+var botname         = creds.name
+var AUTH            = creds.AUTH
+var USERID          = creds.USERID
+var ROOMID          = room.ROOMID
+var cbot_rgx        = new RegExp('@?'+botname+' ?(.+)?\\??')
 
 var bot = new Bot(AUTH, USERID, ROOMID)
 //bot.debug = true
@@ -135,10 +142,12 @@ bot.on('speak', function(data){
         }
 
         if (data.text.match(cbot_rgx) || talked_to_last === data.userid) {
-            if (talked_to_last) {
-                var question = data.text;
+            var question;
+            if (talked_to_last == data.userid) {
+                question = data.text;
             } else {
-                var question = data.text.match(cbot_rgx)[1];
+                question = data.text.match(cbot_rgx)[1];
+                console.log('now talking to '+getUserById(data.userid).name)
                 talked_to_last = data.userid;
             }
             CBot.write(question, function callback(resp){
@@ -148,13 +157,13 @@ bot.on('speak', function(data){
             if ( chat_timeout ) {
                 clearTimeout(chat_timeout);
             }
-            chat_timeout = setTimeout(function(){talked_to_last = false}, 18000)
+            chat_timeout = setTimeout(function(){console.log('talking timeout'); talked_to_last = false}, 45000)
         }
     }
 })
 
 bot.on('pmmed', function(data){
-    console.log('pmmed by '+ getUserById(data.senderid).name)
+    console.log(botname+' pmmed by '+ getUserById(data.senderid).name)
     //Expect name to be left out
     if (data.text.match(/jarvis (.+)/)) {
         bot.pm('Whoa dude, no need to be so formal, just tell me what you want me to do', data.senderid);
@@ -213,6 +222,7 @@ function command( order, data, pm ) {
         if (order.match(/^grind$/)) {
             bot.addDj()
             autobop = true;
+            grind   = true;
         }
 
         if (order.match(/^botnet (\d+) (.+)/)){
@@ -221,7 +231,7 @@ function command( order, data, pm ) {
 
             for ( var i=0; i<com[1]; i++  ){
                 var slave = slaves.getRandomSlave()
-                wait = Math.random()*30000
+                wait = Math.random()*45000
                 console.log('Commanding '+slave.name+' '+com[2]+' in '+(wait/1000)+' sec')
                 timers[i] = setTimeout(function(command, slave){
                     console.log('pmming '+slave.name+' now');
@@ -262,6 +272,10 @@ function command( order, data, pm ) {
             bot.vote('down');
         }
 
+        if (order.match(/^heart$/)) {
+            bot.snag()
+        }
+
         if (order.match(/^wingman/)){
             bot.bop();
             if ( !pm ) { bot.speak('I got your back bro'); }
@@ -277,6 +291,7 @@ function command( order, data, pm ) {
         if (order.match(/^get off$/)){
             if ( !pm ){ bot.speak('ok.... :('); }
             autobop = false;
+            grind   = false;
             bot.remDj();
         }
     }
@@ -292,7 +307,7 @@ bot.on('newsong', function(data){
             setTimeout(function(){console.log('bopping now'); bot.bop();}, safe_wait);
         } else {
             //song is my song, skip it
-            bot.skip();
+            if (!grind) { bot.skip(); }
         }
     }
 })
