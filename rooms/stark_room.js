@@ -1,0 +1,3 @@
+ROOMID = "505a4011aaa5cd462c00046e"
+
+exports.ROOMID = ROOMID
