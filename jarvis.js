@@ -2,7 +2,6 @@ var _           = require('underscore');
 var sys         = require('sys');
 var optparse    = require('optparse');
 var Bot         = require('ttapi');
-var slaves      = require('./slaves.js');
 var CleverBot   = require('./lib/cleverbot');
 
 //TODO: find a way to get bot name from tt
@@ -14,23 +13,29 @@ var talked_to_last  = false;
 var chat_timeout    = false;
 var grind           = false;
 var gamblers        = []
+var djs_on_deck     = [];
 var timers          = [];
 var users           = [];
 var winner          = undefined;
 var laptops         = ['linux', 'mac', 'pc', 'chrome' ]
 var autobop         = false;
-var mods            = {'4fb188d7aaa5cd0950000107': 'DJJarvis', '4fe4db76aaa5cd0a6b000040':'Jamas'}
-var sudoers         = {'4e99db8d4fe7d059f7079f56':'ECHRIS', '4f9b0715aaa5cd2af40001e4':'A Tree'}
+var mods            = {'4fe4db76aaa5cd0a6b000040':'Jamas'}
+var sudoers         = {'4fb188d7aaa5cd0950000107': 'DJJarvis', '4e99db8d4fe7d059f7079f56':'ECHRIS', '4f9b0715aaa5cd2af40001e4':'A Tree'}
 var slave           = false;
+var master          = false;
+var slaves
 var creds
+var current_song
+var current_dj
+var last_dj
 
-var CBot =  new CleverBot;
 
 var switches        = [
     ['-c', '--creds FILE', 'Credentials you want the bot to connect with'],
     ['-r', '--room FILE', 'Room to go too'],
     ['-v', '--verbose', 'verbose mode'],
-    ['-s', '--slave', 'verbose mode']
+    ['-s', '--slave', 'this bot is a slave'],
+    ['-m', '--master', 'this bot is a master']
 ]
 
 var parser = new optparse.OptionParser(switches);
@@ -43,6 +48,11 @@ parser.on('creds', function(name, value){
     creds = require('./'+value)
 })
 
+parser.on('master', function(name, value){
+    master = true;
+    slaves = require('./slaves.js')
+})
+
 parser.on('slave', function(name, value){
     slave = true;
 })
@@ -53,52 +63,104 @@ parser.on('verbose', function(name, value){
 
 parser.parse(process.argv)
 
+// Options that depend on cmd line args
 var botname         = creds.name
 var AUTH            = creds.AUTH
 var USERID          = creds.USERID
 var ROOMID          = room.ROOMID
 var cbot_rgx        = new RegExp('@?'+botname+' ?(.+)?\\??')
+var i_won_rgx       = new RegExp(botname+' won')
+var get_off_rgx     = new RegExp(botname+', you played your song,')
 
-var bot = new Bot(AUTH, USERID, ROOMID)
+var CBot = new CleverBot;
+var bot  = new Bot(AUTH, USERID, ROOMID)
+
 //bot.debug = true
+
+// ### BASIC Bot functionality ### //
+bot.on('newsong', function(data){
+    current_song = data.room.metadata.current_song
+    last_dj      = current_dj
+    current_dj   = data.room.metadata.current_dj;
+    if (getUserById(USERID).name == 'DJJarvis' && casino_on ){
+        bot.speak('Alright '+getUserById(last_dj).name+', you played your song, please step down, the song limit is currently 1.')
+    }
+    /*
+    if ( _.any( djs_on_deck, function(dj){ return dj.userid == userid} ) ){
+        djs_on_deck[current_dj] = djs_on_deck[current_dj]++
+    } else {
+        djs_on_deck[current_dj] = 1;
+    }
+    */
+    if ( data.room.metadata.current_dj != USERID ){
+
+        // song is someone elses
+        if ( autobop == true ){
+            safe_wait = Math.random()*60000
+            console.log('bopping in '+(safe_wait/1000)+' seconds')
+            setTimeout(function(){console.log('bopping now'); bot.bop();}, safe_wait);
+        } else if ( grind == true ){
+            // grind mode is on, randomly vote
+            if ( Math.round( Math.random() ) ){
+                bot.bop();
+            }
+        }
+
+    } else {
+        //song is my song, skip it
+        if (!grind) { bot.skip(); }
+    }
+
+});
 
 bot.on( 'roomChanged', function(data) {
     //create user list
+    current_song = data.room.metadata.current_song
+    current_dj = data.room.metadata.current_dj
+    bot.modifyLaptop(laptops[Math.round(Math.random()*4)])
     users = data.users;
 });
 
 bot.on( 'add_dj', function(data) {
-    if ( casino_on && !no_rolls){
+    var new_dj_id = data.user[0].userid;
+
+    // Add them to the dj list
+    djs_on_deck.push({'userid': new_dj_id, 'count':0})
+    if ( casino_on && !no_rolls && new_dj_id != USERID ){
         console.log( 'casino is on eliminate snipers' )
         //casino is on, eliminate snipers
-        var new_dj_id = data.user[0].userid
         if ( _.isUndefined( winner ) ) {
-            console.log( 'winner is undefined still, you can"t be on deck' )
-            console.log( data )
-            console.log( new_dj_id )
+            console.log( 'winner is undefined still, you can"t be on deck' );
+            console.log( data );
+            console.log( new_dj_id );
             //rollers haven't finished yet
-            bot.remDj( new_dj_id )
-        } else if ( new_dj_id != winner.userId || new_dj_id != USERID ){
-            bot.remDj( new_dj_id )
+            bot.remDj( new_dj_id );
+        } else if ( new_dj_id != winner.userId ){
+            bot.remDj( new_dj_id );
         }
     }
 })
 
-bot.on( 'rem_dj', function() {
+bot.on( 'rem_dj', function(data) {
+    var dj_that_got_off = data.user[0]
+    djs_on_deck = _.filter(djs_on_deck, function(dj){
+        return dj.userid != dj_that_got_off.userid;
+    })
+
     if (casino_on){
         winner = undefined;
         rolls_allowed = true;
         gamblers = [];
-        bot.speak('Spot is open, please type roll for a spot')
-        setTimeout(function(){lottery_winner()}, 10000);
+        bot.speak('Spot is open, please type roll for a spot');
+        setTimeout(function(){lottery_winner()}, 15000);
     }
 })
 
 bot.on( 'registered', function(data) {
     for ( i in data.user ) {
-        users.push( data.user[i] )
+        users.push( data.user[i] );
     }
-    console.log(users)
+    console.log(users);
 });
 
 bot.on('deregistered', function(data){
@@ -106,20 +168,36 @@ bot.on('deregistered', function(data){
 })
 
 bot.on('speak', function(data){
-    username=data.name
+    username=data.name;
 
     //We don't care what the bot says
-    if (data.userid != USERID){
+    if (data.userid != USERID ) {
+
+        if (data.text.match(/please type roll for a spot/g) ){
+            setTimeout(function(order, data, pm){
+                command(order, data, pm)
+            }, Math.random()*10000, 'say roll', data, false )
+        }
+
+        if (data.text.match(get_off_rgx) ){
+            setTimeout(function(){
+                bot.remDj()
+            }, Math.random()*3000 )
+        }
+
+        //bot should always respond to rolls if casino is in effect
+        if (data.text.match(/^roll$/) && casino_on && rolls_allowed){
+            command( data.text, data, false )
+        }
+
+        if (data.text.match(i_won_rgx)) {
+            bot.addDj();
+        }
 
         if (!slave) {
             //bot should always respond to greetings
             if (data.text.match(/(sup|hello|hi|hey|whatup|oh hai) jarvis/gi)) {
                 bot.speak( 'Hey! How are you '+username+' ?' );
-            }
-
-            //bot should always respond to rolls if casino is in effect
-            if (data.text.match(/^roll$/) && casino_on && rolls_allowed){
-                command( data.text, data, false )
             }
 
             //respond to all casino? queries
@@ -141,23 +219,26 @@ bot.on('speak', function(data){
             }
         }
 
-        if (data.text.match(cbot_rgx) || talked_to_last === data.userid) {
-            var question;
-            if (talked_to_last == data.userid) {
-                question = data.text;
-            } else {
-                question = data.text.match(cbot_rgx)[1];
-                console.log('now talking to '+getUserById(data.userid).name)
-                talked_to_last = data.userid;
+        if ( data.userid != getUserByName('DJJarvis').userid ) {
+            // If the bot doesn't get a command check if someone asked it a direct question
+            if ( data.text.match(cbot_rgx) || talked_to_last === data.userid ) {
+                var question;
+                if (talked_to_last == data.userid) {
+                    question = data.text;
+                } else {
+                    question = data.text.match(cbot_rgx)[1];
+                    console.log('now talking to '+getUserById(data.userid).name)
+                    talked_to_last = data.userid;
+                }
+                CBot.write(question, function callback(resp){
+                    console.log(question, ' : ', resp['message'])
+                    bot.speak(resp['message'])
+                });
+                if ( chat_timeout ) {
+                    clearTimeout(chat_timeout);
+                }
+                chat_timeout = setTimeout(function(){console.log('talking timeout'); talked_to_last = false}, 45000)
             }
-            CBot.write(question, function callback(resp){
-                console.log(question, ' : ', resp['message'])
-                bot.speak(resp['message'])
-            });
-            if ( chat_timeout ) {
-                clearTimeout(chat_timeout);
-            }
-            chat_timeout = setTimeout(function(){console.log('talking timeout'); talked_to_last = false}, 45000)
         }
     }
 })
@@ -165,13 +246,11 @@ bot.on('speak', function(data){
 bot.on('pmmed', function(data){
     console.log(botname+' pmmed by '+ getUserById(data.senderid).name)
     //Expect name to be left out
-    if (data.text.match(/jarvis (.+)/)) {
-        bot.pm('Whoa dude, no need to be so formal, just tell me what you want me to do', data.senderid);
-    }else{
-        command(data.text, data, true)
-    }
-})
+    command(data.text, data, true)
+});
 
+
+// ### COMMANDS ### //
 function command( order, data, pm ) {
     console.log( 'Command: '+order )
 
@@ -191,10 +270,14 @@ function command( order, data, pm ) {
                 already_voted = true;
             }
         }
-        if ( !already_voted ){
+        if ( !already_voted && !_.any( djs_on_deck, function(dj){ return dj.userid == userid} )){
             gamblers.push( { userId : userid, score: roll_score } )
             bot.speak( getUserById( userid ).name+' you rolled '+ roll_score )
         }
+    }
+
+    if ( order.match(/^djs$/) ){
+        console.log(djs_on_deck)
     }
 
     if ( order.match(/^casino.$/) ){
@@ -212,36 +295,25 @@ function command( order, data, pm ) {
         }
     }
 
+    // SUDO level commands
     if ( _.has( sudoers, userid ) ){
-        //Sudo users
         if (order.match(/^say (.+)/)) {
            words = order.match(/^say (.+)/)[1];
            bot.speak( words );
         }
 
-        if (order.match(/^grind$/)) {
-            bot.addDj()
-            autobop = true;
-            grind   = true;
-        }
-
-        if (order.match(/^botnet (\d+) (.+)/)){
-            com = order.match(/^botnet (\d+) (.+)/)
-            console.log(com)
-
-            for ( var i=0; i<com[1]; i++  ){
-                var slave = slaves.getRandomSlave()
-                wait = Math.random()*45000
-                console.log('Commanding '+slave.name+' '+com[2]+' in '+(wait/1000)+' sec')
-                timers[i] = setTimeout(function(command, slave){
-                    console.log('pmming '+slave.name+' now');
-                    bot.pm(command, slave.userId)
-                }, wait, com[2], slave)
+        if (order.match(/^grind (on|off)$/)) {
+            toggle = order.match(/grind (on|off)$/)[1]
+            switch (toggle) {
+                case 'on':
+                    bot.addDj()
+                    grind   = true;
+                    break;
+                case 'off':
+                    bot.remDj();
+                    grind   = false;
+                    break;
             }
-        }
-
-        //Currently not working...
-        if (order.match(/^run (.+)/)) {
         }
 
         if (order.match(/^casino (on|off)/)){
@@ -255,13 +327,55 @@ function command( order, data, pm ) {
                     casino_on = false
                     bot.speak('Casino mode disengaged')
                     break;
+            }
+        }
 
+        if (order.match(/^botnet (\d+|all) ([a-zA-Z ]+)(!)?/)){
+            com = order.match(/^botnet (\d+|all) ([a-zA-Z ]+)(!)?/)
+            console.log(com)
+            var num_bots = com[1];
+            if (num_bots === 'all'){
+                num_bots = slaves.length;
+            }
+
+            // Make sure we have Enough slaves to handle request
+            if ( num_bots<=slaves.length ) {
+
+                var pmmed_already = {};
+                for ( var i=1; i<num_bots; i++ ){
+                    // Give us a random slave
+                    var slave = slaves.getRandomSlave();
+
+                    // If we've already pmmed this bot, get a new one
+                    while ( _.has(pmmed_already, slave.userId) ) {
+                        slave = slaves.getRandomSlave();
+                    }
+
+                    // Alright, fresh slave, give him an order
+                    if (com[3] == '!' ){
+                        wait = Math.random()*3000
+                    } else {
+                        wait = Math.random()*90000
+                    }
+                    console.log('Commanding '+slave.name+' '+com[2]+' in '+(wait/1000)+' sec')
+                    timers[i] = setTimeout(function(command, slave){
+                        console.log('pmming '+slave.name+' now');
+                        bot.pm(command, slave.userId)
+                    }, wait, com[2], slave)
+
+                    // Finally, add that slave to list of ones we've already used.
+                    pmmed_already[slave.userId] = slave.name
+                }
+
+            } else {
+                // Not enough slaves to handle that request
+                console.log('Not enough slaves to handle that request, we only have '+slaves.length+' slave(s)')
             }
         }
     }
 
+    //  MOD level commands
     if ( _.has( mods, userid ) || _.has( sudoers, userid )) {
-        //Mod and sudoers only commands
         if (order.match(/(^upboat|^awesome|^upvote|^kiss my ass|^dance)/)){
             if (!pm) {bot.speak('roger that'); }
             bot.bop();
@@ -272,8 +386,14 @@ function command( order, data, pm ) {
             bot.vote('down');
         }
 
+        if (order.match(/^pm (.+)/)) {
+            com = order.match(/^pm (.+) "(.+)"/)
+            bot.pm(com[2], getUserByName(com[1]).userid)
+        }
+
         if (order.match(/^heart$/)) {
             bot.snag()
+            bot.playlistAdd( current_song._id )
         }
 
         if (order.match(/^wingman/)){
@@ -297,20 +417,13 @@ function command( order, data, pm ) {
     }
 }
 
-bot.on('newsong', function(data){
-    if ( autobop == true ){
-        bot.modifyLaptop(laptops[Math.round(Math.random()*4)])
-        if ( data.room.metadata.current_dj != USERID ){
-            //song is someone elses
-            safe_wait = Math.random()*45000
-            console.log('bopping in '+(safe_wait/1000)+' seconds')
-            setTimeout(function(){console.log('bopping now'); bot.bop();}, safe_wait);
-        } else {
-            //song is my song, skip it
-            if (!grind) { bot.skip(); }
+function getUserByName(name){
+    for (index in users){
+        if (users[index].name === name) {
+            return users[index];
         }
     }
-})
+}
 
 function getUserById(userId){
     for (index in users){
