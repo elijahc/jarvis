@@ -391,6 +391,10 @@ function command( order, data, pm ) {
             bot.pm(com[2], getUserByName(com[1]).userid)
         }
 
+        if (order.match(/^gtfo$/)) {
+            bot.roomDeregister()
+        }
+
         if (order.match(/^heart$/)) {
             bot.snag()
             bot.playlistAdd( current_song._id )
@@ -400,7 +404,7 @@ function command( order, data, pm ) {
             bot.bop();
             if ( !pm ) { bot.speak('I got your back bro'); }
             bot.addDj();
-            autobop = true;
+            // autobop = true;
         }
 
         if (order.match(/^autobop|^kiss my ass/)){
